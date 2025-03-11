@@ -7,11 +7,31 @@
 
 import SwiftUI
 import SwiftData
+import TipKit
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var items: [Item]
     @State private var item: String = ""
+    @FocusState private var isFocused: Bool
+    
+    let buttonTip = ButtonTip()
+    
+    func setupTips() {
+        do {
+            try Tips.resetDatastore()
+            Tips.showAllTipsForTesting()
+            try Tips.configure([
+                .displayFrequency(.immediate)
+            ])
+        } catch {
+            print("Error intializing TipKit: \(error.localizedDescription)")
+        }
+    }
+    
+    init(){
+        setupTips()
+    }
     
     func addEssentialFoods() {
         modelContext.insert(Item(title: "Bakery & Bread", isCompleted: false))
@@ -21,9 +41,6 @@ struct ContentView: View {
         modelContext.insert(Item(title: "Cheese & Eggs", isCompleted: .random()))
         
     }
-    
-    
-    
     var body: some View {
         NavigationStack {
             List {
@@ -50,7 +67,6 @@ struct ContentView: View {
                             .tint(item.isCompleted == false ?  Color.green : Color.accentColor)
                         }
                 }
-                
             }
             .navigationTitle("Grocery List")
             .toolbar {
@@ -59,38 +75,47 @@ struct ContentView: View {
                         Button {
                             addEssentialFoods()
                         }label: {
-                            Label("Essentials", systemImage: "carrot")
+                            Image(systemName: "carrot")
                         }
+                        .popoverTip(buttonTip)
                     }
                 }
-            }
-            .safeAreaInset(edge: .bottom) {
-                VStack{
-                    TextField("", text: $item)
-                        .textFieldStyle(.plain)
-                        .padding(12)
-                        .background(.tertiary)
-                        .cornerRadius(12)
-                        .font(.title.weight(.light))
-                    
-                    Button {
-                        let newItem = Item(title: item, isCompleted: false)
-                        modelContext.insert(newItem)
-                    } label: {
-                        Text("Save")
-                    }
-                    .ButtonStyle(.borderedProminent)
-                    .buttonBorderShape(.roundedRectangle)
-                    .controlSize(.extraLarge)
-                }
-                .padding()
-                .background(.bar)
             }
             .overlay{
                 if items.isEmpty {
                     ContentUnavailableView("Empty Cart", systemImage: "cart.circle", description:   Text("Add some items to the shopping list."))
                     
                 }
+            }
+            .safeAreaInset(edge: .bottom) {
+                VStack(spacing: 12){
+                    TextField("", text: $item)
+                        .textFieldStyle(.plain)
+                        .padding(12)
+                        .background(.tertiary)
+                        .cornerRadius(12)
+                        .font(.title.weight(.light))
+                        .focused($isFocused)
+                    
+                    Button {
+                        guard !item.isEmpty else { return }
+                        
+                        let newItem = Item(title: item, isCompleted: false)
+                        modelContext.insert(newItem)
+                        item = ""
+                        isFocused = false
+                    } label: {
+                        Text("Save")
+                            .font(.title2.weight(.medium))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .buttonBorderShape(.roundedRectangle)
+                    .controlSize(.extraLarge)
+                    
+                }
+                .padding()
+                .background(.bar)
             }
         }
     }
